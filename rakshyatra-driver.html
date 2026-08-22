@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Rakshyatra — Sarathi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<style>
+  :root{
+    --ink:#17233F;
+    --ink-soft:#5B6584;
+    --ink-faint:#94A0BD;
+    --paper:#F3F6F5;
+    --card:#FFFFFF;
+    --saffron:#E38B29;
+    --saffron-soft:#FBEBD8;
+    --safe:#2F9E6E;
+    --safe-soft:#E3F5EC;
+    --alert:#D14343;
+    --alert-soft:#FBE7E7;
+    --line:#E4E8E6;
+    --shadow: 0 10px 30px -12px rgba(23,35,63,0.18);
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    font-family:'Manrope', sans-serif;
+    background:#DCE3E8;
+    color:var(--ink);
+    min-height:100vh;
+    display:flex; align-items:flex-start; justify-content:center;
+    padding: 28px 12px;
+  }
+  .frame{
+    width:100%; max-width:400px; background:var(--paper); border-radius:34px;
+    box-shadow:var(--shadow); overflow:hidden; min-height:800px; position:relative;
+    border:1px solid rgba(23,35,63,0.06);
+  }
+  .status-bar{
+    height:24px; display:flex; align-items:center; justify-content:space-between;
+    padding:6px 24px 0; font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--ink-soft);
+  }
+  .screen{ display:none; padding:8px 20px 100px; }
+  .screen.active{ display:block; animation:fade .25s ease; }
+  @keyframes fade{ from{opacity:0; transform:translateY(4px)} to{opacity:1; transform:translateY(0)} }
+
+  .top-row{ display:flex; align-items:center; justify-content:space-between; margin:6px 0 4px; }
+  .wordmark{ font-family:'Fraunces', serif; font-weight:600; font-size:20px; letter-spacing:-0.01em; }
+  .wordmark span{ color:var(--saffron); }
+  .driver-tag{ font-size:10.5px; font-weight:800; color:var(--ink-faint); letter-spacing:0.08em; }
+
+  .greet{ font-size:13px; color:var(--ink-soft); margin: 14px 0 2px; }
+  .route-name{ font-family:'Fraunces', serif; font-size:24px; font-weight:600; margin-bottom:16px; }
+
+  .progress-wrap{ margin-bottom:6px; }
+  .progress-bar{ height:6px; background:var(--line); border-radius:6px; overflow:hidden; }
+  .progress-fill{ height:100%; background:var(--saffron); width:0%; transition: width .5s ease; border-radius:6px; }
+  .progress-label{ display:flex; justify-content:space-between; font-size:11px; color:var(--ink-soft); margin-top:6px; font-family:'IBM Plex Mono'; }
+
+  .card{
+    background:var(--card); border-radius:20px; padding:16px 16px 6px; margin: 14px 0;
+    box-shadow: 0 6px 20px -10px rgba(23,35,63,0.14);
+  }
+  .card-title{ font-weight:800; font-size:13.5px; display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+  .card-sub{ font-size:11.5px; color:var(--ink-soft); margin: -4px 0 10px; }
+
+  .check-item{
+    display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid var(--line);
+  }
+  .check-item:last-child{ border-bottom:none; }
+  .check-box{
+    width:24px; height:24px; border-radius:8px; border:2px solid var(--ink-faint);
+    display:flex; align-items:center; justify-content:center; flex-shrink:0; cursor:pointer;
+    font-size:13px; color:transparent; transition: all .15s ease;
+  }
+  .check-box.checked{ background:var(--safe); border-color:var(--safe); color:#fff; }
+  .check-label{ font-size:13.5px; font-weight:600; flex:1; }
+  .check-time{ font-family:'IBM Plex Mono'; font-size:10.5px; color:var(--ink-faint); }
+
+  .primary-btn{
+    width:100%; padding:15px; border-radius:16px; border:none; margin: 16px 0 6px;
+    background:var(--ink); color:#fff; font-weight:800; font-size:14.5px; letter-spacing:0.01em;
+    cursor:pointer;
+  }
+  .primary-btn:disabled{ background:#C7CCDA; color:#fff; cursor:not-allowed; }
+  .primary-btn.go{ background:var(--saffron); box-shadow: 0 10px 24px -10px rgba(227,139,41,0.6); }
+  .primary-btn.stop{ background:var(--alert); box-shadow: 0 10px 24px -10px rgba(209,67,67,0.55); }
+  .primary-btn:active:not(:disabled){ transform: scale(0.99); }
+
+  .hint{ text-align:center; font-size:11.5px; color:var(--ink-faint); margin-bottom:14px; }
+
+  .student-row-wrap{ border-bottom:1px solid var(--line); padding:2px 0; }
+  .student-row-wrap:last-child{ border-bottom:none; }
+  .student-row{
+    display:flex; align-items:center; gap:12px; padding:11px 0;
+  }
+  .student-avatar{
+    width:38px; height:38px; border-radius:50%; background:var(--saffron-soft); color:#8A4E10;
+    display:flex; align-items:center; justify-content:center; font-family:'Fraunces'; font-weight:600; font-size:15px; flex-shrink:0;
+  }
+  .student-info{ flex:1; }
+  .student-name{ font-weight:700; font-size:13.5px; }
+  .student-stop{ font-size:11px; color:var(--ink-soft); }
+  .mark-btn{
+    padding:8px 14px; border-radius:10px; border:1.5px solid var(--safe); background:var(--safe-soft);
+    color:var(--safe); font-weight:800; font-size:11px; cursor:pointer; white-space:nowrap;
+  }
+  .mark-btn.done{ background:var(--safe); color:#fff; border-color:var(--safe); }
+
+  .status-banner{
+    display:flex; align-items:center; gap:8px; padding:10px 14px; border-radius:14px;
+    background:var(--safe-soft); color:var(--safe); font-weight:700; font-size:12.5px; margin-bottom:14px;
+  }
+  .status-banner .pulse{ width:8px; height:8px; border-radius:50%; background:var(--safe); animation:pulse 1.4s infinite; }
+  @keyframes pulse{ 0%,100%{opacity:1} 50%{opacity:.3} }
+  .status-banner.idle{ background:var(--paper); color:var(--ink-soft); }
+  .status-banner.idle .pulse{ background:var(--ink-faint); animation:none; }
+
+  .navbar{
+    position:absolute; bottom:0; left:0; right:0; background:var(--card); border-top:1px solid var(--line);
+    display:flex; padding:10px 8px 14px; border-radius:0 0 34px 34px;
+  }
+  .navbtn{
+    flex:1; display:flex; flex-direction:column; align-items:center; gap:4px;
+    background:none; border:none; color:var(--ink-faint); font-family:'Manrope'; font-size:10.5px; font-weight:700; cursor:pointer;
+  }
+  .navbtn .ic{ font-size:18px; }
+  .navbtn.active{ color:var(--saffron); }
+
+  .history-item{
+    background:var(--card); border-radius:16px; padding:14px 16px; margin-bottom:10px;
+    display:flex; align-items:center; justify-content:space-between; box-shadow: 0 4px 14px -8px rgba(23,35,63,0.12);
+  }
+  .history-date{ font-weight:700; font-size:13.5px; }
+  .history-sub{ font-size:11.5px; color:var(--ink-soft); margin-top:2px; }
+  .badge{ font-family:'IBM Plex Mono'; font-size:10px; font-weight:700; padding:4px 8px; border-radius:8px; background:var(--safe-soft); color:var(--safe); }
+
+  .photo-tile{
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;
+    aspect-ratio: 4/3; border-radius:16px; border:2px dashed var(--ink-faint); background:var(--paper);
+    cursor:pointer; margin-bottom:12px; overflow:hidden; position:relative;
+  }
+  .photo-tile.filled{ border-style:solid; border-color:var(--safe); }
+  .photo-tile img{ width:100%; height:100%; object-fit:cover; }
+  .photo-tile .ptext{ font-size:12.5px; font-weight:700; color:var(--ink-soft); }
+  .photo-tile .picon{ font-size:26px; }
+  .photo-badge{
+    position:absolute; top:8px; right:8px; background:var(--safe); color:#fff; font-size:10px; font-weight:800;
+    padding:3px 8px; border-radius:8px; letter-spacing:0.02em;
+  }
+  .shared-chip{
+    display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:700; color:var(--safe);
+    background:var(--safe-soft); padding:5px 10px; border-radius:20px; margin-bottom:12px;
+  }
+  .otp-panel{
+    display:flex; gap:8px; align-items:center; margin-top:8px; padding-top:8px; border-top:1px dashed var(--line);
+  }
+  .otp-panel input{
+    flex:1; border:1.5px solid var(--ink-faint); border-radius:10px; padding:9px 12px; font-family:'IBM Plex Mono';
+    font-size:15px; letter-spacing:0.3em; text-align:center; color:var(--ink);
+  }
+  .otp-panel input:focus{ outline:none; border-color:var(--saffron); }
+  .otp-verify{
+    padding:9px 14px; border-radius:10px; border:none; background:var(--ink); color:#fff; font-weight:800; font-size:11.5px; cursor:pointer; white-space:nowrap;
+  }
+  .otp-hint{ font-size:10.5px; color:var(--ink-faint); margin-top:4px; }
+
+  .top-sos-btn{
+    width:34px; height:34px; border-radius:11px; border:none; background:var(--alert-soft); color:var(--alert);
+    font-size:15px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;
+  }
+  .top-row-right{ display:flex; align-items:center; gap:8px; }
+
+  /* SOS MODAL (driver) */
+  .sos-modal{
+    position:absolute; inset:0; background:rgba(23,35,63,0.6); display:none;
+    align-items:flex-end; justify-content:center; z-index:60; border-radius:34px;
+  }
+  .sos-modal.open{ display:flex; }
+  .sos-modal-inner{ width:100%; background:#fff; border-radius:24px 24px 0 0; padding:22px 20px 26px; max-height:85%; overflow-y:auto; }
+  .sos-modal-title{ font-family:'Fraunces'; font-weight:600; font-size:18px; margin-bottom:4px; }
+  .sos-modal-sub{ font-size:12.5px; color:var(--ink-soft); margin-bottom:16px; }
+  .sos-option{
+    display:flex; align-items:center; gap:12px; width:100%; padding:14px; border-radius:14px;
+    border:1.5px solid var(--line); background:#fff; margin-bottom:10px; cursor:pointer; text-align:left;
+  }
+  .sos-option .ic{ font-size:20px; width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .sos-option.police .ic{ background:var(--alert-soft); }
+  .sos-option.school .ic{ background:var(--saffron-soft); }
+  .sos-option .txt .t1{ font-weight:800; font-size:13.5px; }
+  .sos-option .txt .t2{ font-size:11px; color:var(--ink-soft); margin-top:1px; }
+  .sos-cancel{ width:100%; padding:13px; border-radius:14px; border:none; background:var(--paper); color:var(--ink-soft); font-weight:700; font-size:13px; margin-top:4px; }
+
+  /* NOT AT PICKUP */
+  .not-present-link{ background:none; border:none; font-size:10.5px; color:var(--ink-faint); text-decoration:underline; cursor:pointer; margin-top:6px; padding:0; }
+  .not-present-panel{ margin-top:8px; padding-top:8px; border-top:1px dashed var(--line); font-size:12px; color:var(--ink-soft); line-height:1.4; }
+  .not-present-confirm{ margin-top:8px; padding:9px 14px; border-radius:10px; border:none; background:var(--alert); color:#fff; font-weight:800; font-size:11.5px; cursor:pointer; }
+  .mark-btn.waiting-parent{ background:var(--saffron-soft); color:#8A4E10; border-color:var(--saffron); }
+  .mark-btn.skipped{ background:#EDEEF2; color:var(--ink-faint); border-color:var(--line); }
+
+  /* HOLIDAY STATE */
+  .holiday-card{ background:var(--card); border-radius:22px; padding:28px 20px; text-align:center; margin-bottom:16px; box-shadow: 0 6px 20px -10px rgba(23,35,63,0.15); }
+  .holiday-card .hic{ font-size:32px; margin-bottom:10px; }
+  .holiday-card .ht{ font-family:'Fraunces'; font-weight:600; font-size:17px; margin-bottom:4px; }
+  .holiday-card .hs{ font-size:12.5px; color:var(--ink-soft); }
+  .demo-toggle{ font-size:10px; color:var(--ink-faint); text-align:center; margin-top:10px; text-decoration:underline; cursor:pointer; }
+
+  .profile-card{ background:var(--card); border-radius:20px; padding:20px; text-align:center; margin-bottom:14px; box-shadow: 0 6px 20px -10px rgba(23,35,63,0.12); }
+  .profile-avatar{ width:64px; height:64px; border-radius:50%; margin:0 auto 10px; background: linear-gradient(135deg,#2C3B63,#17233F); color:#fff; display:flex; align-items:center; justify-content:center; font-family:'Fraunces'; font-size:22px; font-weight:600; }
+  .info-row{ display:flex; justify-content:space-between; padding:12px 0; border-bottom:1px solid var(--line); font-size:13.5px; }
+  .info-row .k{ color:var(--ink-soft); }
+  .info-row .v{ font-weight:700; }
+  .info-row:last-child{ border-bottom:none; }
+</style>
+</head>
+<body>
+
+<div class="frame">
+  <div class="status-bar"><span>7:32</span><span>SARATHI · PROTOTYPE</span></div>
+
+  <!-- TODAY / TRIP SCREEN -->
+  <div class="screen active" id="today">
+    <div class="top-row">
+      <div class="wordmark">Raksh<span>y</span>atra</div>
+      <div class="top-row-right">
+        <div class="driver-tag">ROUTE 7</div>
+        <button class="top-sos-btn" onclick="openSos()">🚨</button>
+      </div>
+    </div>
+    <div class="greet">Good morning, Ramesh</div>
+    <div class="route-name">Indiranagar Morning Run</div>
+    <div class="demo-toggle" onclick="resetTodaysTrip()" style="text-align:left; margin:-8px 0 14px 2px;">↺ Start a fresh trip today</div>
+
+    <div id="todayContent">
+    <div class="status-banner idle" id="banner"><span class="pulse"></span><span id="bannerText">Trip not started — complete checklist below</span></div>
+
+    <div class="progress-wrap">
+      <div class="progress-bar"><div class="progress-fill" id="progFill"></div></div>
+      <div class="progress-label"><span id="progLabel">0 of 6 steps done</span><span id="progPct">0%</span></div>
+    </div>
+
+    <!-- STAGE 1: PRE-TRIP CHECKLIST -->
+    <div class="card" id="checklistCard">
+      <div class="card-title">Pre-trip safety checklist</div>
+      <div class="card-sub">Required before you can start — takes under a minute</div>
+      <div id="checklist">
+        <div class="check-item" data-item="1"><div class="check-box" onclick="toggleCheck(this)">✓</div><div class="check-label">Brakes &amp; tyres checked</div></div>
+        <div class="check-item" data-item="2"><div class="check-box" onclick="toggleCheck(this)">✓</div><div class="check-label">All seatbelts working</div></div>
+        <div class="check-item" data-item="3"><div class="check-box" onclick="toggleCheck(this)">✓</div><div class="check-label">First aid kit on board</div></div>
+        <div class="check-item" data-item="4"><div class="check-box" onclick="toggleCheck(this)">✓</div><div class="check-label">Doors lock securely</div></div>
+        <div class="check-item" data-item="5"><div class="check-box" onclick="toggleCheck(this)">✓</div><div class="check-label">Fuel sufficient for full route</div></div>
+        <div class="check-item" data-item="6"><div class="check-box" onclick="toggleCheck(this)">✓</div><div class="check-label">Phone charged, Rakshyatra app open</div></div>
+      </div>
+    </div>
+
+    <button class="primary-btn go" id="startBtn" disabled onclick="startTrip()">Start trip</button>
+    <div class="hint" id="startHint">Complete all 6 checks to start</div>
+
+    <!-- STAGE 1.5: DAY-START PHOTO -->
+    <div class="card" id="startPhotoCard" style="display:none;">
+      <div class="card-title">Day-start photo</div>
+      <div class="card-sub">Parents see this so they know who's driving today</div>
+      <label class="photo-tile" id="photoTile">
+        <input type="file" accept="image/*" capture="environment" onchange="handlePhoto(event)" style="display:none;">
+        <span class="picon">📷</span>
+        <span class="ptext" id="photoTileText">Tap to take photo</span>
+      </label>
+    </div>
+    <button class="primary-btn go" id="beginRouteBtn" style="display:none;" disabled onclick="beginRoute()">Begin route</button>
+    <div class="hint" id="beginRouteHint" style="display:none;">Take today's photo to continue</div>
+
+    <!-- STAGE 2: PICKUP LIST (hidden until trip starts) -->
+    <div class="card" id="pickupCard" style="display:none;">
+      <div class="shared-chip">📷 Day-start photo shared with parents</div>
+      <div class="card-title">Pickup — verify each child<span id="pickupCount">0/4</span></div>
+      <div class="card-sub">Ask the parent for the code shown in their app</div>
+      <div id="pickupList">
+        <div class="student-row-wrap" data-s="1" data-school="Greenwood School">
+          <div class="student-row"><div class="student-avatar">A</div><div class="student-info"><div class="student-name">Ananya Sharma</div><div class="student-stop">12th Cross, Indiranagar</div></div><button class="mark-btn" onclick="showOtp(this,1)">Verify pickup</button></div>
+          <div class="otp-panel" style="display:none;"><input type="text" inputmode="numeric" maxlength="4" placeholder="····"><button class="otp-verify" onclick="verifyOtp(this,1)">Confirm</button></div>
+          <button class="not-present-link" onclick="showNotPresent(this,1)">Not at pickup point?</button>
+          <div class="not-present-panel" style="display:none;">This will notify Ananya's parent immediately and ask them to confirm.<br><button class="not-present-confirm" onclick="confirmNotPresent(this,1)">Notify parent now</button></div>
+        </div>
+        <div class="student-row-wrap" data-s="2" data-school="Greenwood School">
+          <div class="student-row"><div class="student-avatar">R</div><div class="student-info"><div class="student-name">Rohan Iyer</div><div class="student-stop">100ft Road</div></div><button class="mark-btn" onclick="showOtp(this,2)">Verify pickup</button></div>
+          <div class="otp-panel" style="display:none;"><input type="text" inputmode="numeric" maxlength="4" placeholder="····"><button class="otp-verify" onclick="verifyOtp(this,2)">Confirm</button></div>
+          <button class="not-present-link" onclick="showNotPresent(this,2)">Not at pickup point?</button>
+          <div class="not-present-panel" style="display:none;">This will notify Rohan's parent immediately and ask them to confirm.<br><button class="not-present-confirm" onclick="confirmNotPresent(this,2)">Notify parent now</button></div>
+        </div>
+        <div class="student-row-wrap" data-s="3" data-school="Greenwood School">
+          <div class="student-row"><div class="student-avatar">M</div><div class="student-info"><div class="student-name">Meera Das</div><div class="student-stop">CMH Road</div></div><button class="mark-btn" onclick="showOtp(this,3)">Verify pickup</button></div>
+          <div class="otp-panel" style="display:none;"><input type="text" inputmode="numeric" maxlength="4" placeholder="····"><button class="otp-verify" onclick="verifyOtp(this,3)">Confirm</button></div>
+          <button class="not-present-link" onclick="showNotPresent(this,3)">Not at pickup point?</button>
+          <div class="not-present-panel" style="display:none;">This will notify Meera's parent immediately and ask them to confirm.<br><button class="not-present-confirm" onclick="confirmNotPresent(this,3)">Notify parent now</button></div>
+        </div>
+        <div class="student-row-wrap" data-s="4" data-school="Silver Oaks Academy">
+          <div class="student-row"><div class="student-avatar">K</div><div class="student-info"><div class="student-name">Kabir Shah</div><div class="student-stop">Defence Colony</div></div><button class="mark-btn" onclick="showOtp(this,4)">Verify pickup</button></div>
+          <div class="otp-panel" style="display:none;"><input type="text" inputmode="numeric" maxlength="4" placeholder="····"><button class="otp-verify" onclick="verifyOtp(this,4)">Confirm</button></div>
+          <button class="not-present-link" onclick="showNotPresent(this,4)">Not at pickup point?</button>
+          <div class="not-present-panel" style="display:none;">This will notify Kabir's parent immediately and ask them to confirm.<br><button class="not-present-confirm" onclick="confirmNotPresent(this,4)">Notify parent now</button></div>
+        </div>
+      </div>
+      <div class="otp-hint">Demo mode — any 4 digits will verify</div>
+    </div>
+
+    <button class="primary-btn go" id="departBtn" style="display:none;" onclick="departSchool()">All aboard — depart for school</button>
+
+    <!-- STAGE 3: DROP AT SCHOOL -->
+    <div class="card" id="dropCard" style="display:none;">
+      <div class="card-title">Drop-off — 2 schools on this route</div>
+      <div class="card-sub">Confirm arrival and hand-off at each school</div>
+      <div id="dropList">
+        <div class="student-row" data-s="1"><div class="student-avatar">A</div><div class="student-info"><div class="student-name">Ananya Sharma</div><div class="student-stop">Grade 4B · Greenwood School</div></div><button class="mark-btn" onclick="markStudent(this,1)">Mark dropped</button></div>
+        <div class="student-row" data-s="2"><div class="student-avatar">R</div><div class="student-info"><div class="student-name">Rohan Iyer</div><div class="student-stop">Grade 5A · Greenwood School</div></div><button class="mark-btn" onclick="markStudent(this,2)">Mark dropped</button></div>
+        <div class="student-row" data-s="3"><div class="student-avatar">M</div><div class="student-info"><div class="student-name">Meera Das</div><div class="student-stop">Grade 4B · Greenwood School</div></div><button class="mark-btn" onclick="markStudent(this,3)">Mark dropped</button></div>
+        <div class="student-row" data-s="4"><div class="student-avatar">K</div><div class="student-info"><div class="student-name">Kabir Shah</div><div class="student-stop">Grade 3C · Silver Oaks Academy</div></div><button class="mark-btn" onclick="markStudent(this,4)">Mark dropped</button></div>
+      </div>
+    </div>
+
+    <button class="primary-btn stop" id="endBtn" style="display:none;" onclick="endTrip()">End trip</button>
+    </div><!-- /todayContent -->
+
+    <div class="holiday-card" id="holidayCard" style="display:none;">
+      <div class="hic">🎈</div>
+      <div class="ht">No trip today</div>
+      <div class="hs">No school today — your route is paused. Enjoy the day off!</div>
+    </div>
+  </div>
+
+  <!-- HISTORY -->
+  <div class="screen" id="history">
+    <div class="top-row"><div class="wordmark" style="font-size:18px">Trip log</div></div>
+    <div class="history-item"><div><div class="history-date">Fri, 15 Aug — Morning</div><div class="history-sub">4/4 picked up · departed 7:53 AM</div></div><div class="badge">ON TIME</div></div>
+    <div class="history-item"><div><div class="history-date">Fri, 15 Aug — Afternoon</div><div class="history-sub">4/4 dropped · completed 3:41 PM</div></div><div class="badge">ON TIME</div></div>
+    <div class="history-item"><div><div class="history-date">Thu, 14 Aug — Morning</div><div class="history-sub">4/4 picked up · departed 8:01 AM</div></div><div class="badge" style="background:var(--saffron-soft); color:#8A4E10;">7 MIN LATE</div></div>
+    <div class="history-item"><div><div class="history-date">Thu, 14 Aug — Afternoon</div><div class="history-sub">4/4 dropped · completed 3:44 PM</div></div><div class="badge">ON TIME</div></div>
+  </div>
+
+  <!-- PROFILE -->
+  <div class="screen" id="profile">
+    <div class="top-row"><div class="wordmark" style="font-size:18px">My profile</div></div>
+    <div class="profile-card">
+      <div class="profile-avatar">RK</div>
+      <div style="font-family:'Fraunces'; font-weight:600; font-size:18px;">Ramesh Kumar</div>
+      <div style="font-size:12px; color:var(--ink-soft); margin-top:2px;">Route 7 · Indiranagar</div>
+    </div>
+    <div class="card" style="padding:6px 16px;">
+      <div class="info-row"><span class="k">Vehicle</span><span class="v">KA 05 AB 4321</span></div>
+      <div class="info-row"><span class="k">License</span><span class="v">Verified ✓</span></div>
+      <div class="info-row"><span class="k">On Rakshyatra since</span><span class="v">Jun 2022</span></div>
+      <div class="info-row"><span class="k">Parent rating</span><span class="v">4.8 ★ (61 rides)</span></div>
+      <div class="info-row"><span class="k">On-time rate (30d)</span><span class="v">94%</span></div>
+    </div>
+  </div>
+
+  <div class="navbar">
+    <button class="navbtn active" onclick="nav('today',this)"><span class="ic">🚐</span>Today</button>
+    <button class="navbtn" onclick="nav('history',this)"><span class="ic">🕓</span>Log</button>
+    <button class="navbtn" onclick="nav('profile',this)"><span class="ic">👤</span>Profile</button>
+  </div>
+
+  <!-- SOS MODAL -->
+  <div class="sos-modal" id="sosModal">
+    <div class="sos-modal-inner">
+      <div class="sos-modal-title">🚨 Emergency</div>
+      <div class="sos-modal-sub">Choose who to contact immediately</div>
+      <button class="sos-option police" onclick="callNumber('112')">
+        <span class="ic">🚓</span>
+        <span class="txt"><div class="t1">Call Police</div><div class="t2">112 · National Emergency Number</div></span>
+      </button>
+      <div id="schoolSosList"><!-- populated by JS based on today's children --></div>
+      <button class="sos-cancel" onclick="closeSos()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ---------- FIREBASE: shared trip data with the parent app ----------
+const firebaseConfig = {
+  apiKey: "AIzaSyCbInpRPLdsP2TwnjlBeRwEr2s_tgKaqXA",
+  authDomain: "rakshyatra-prototype.firebaseapp.com",
+  databaseURL: "https://rakshyatra-prototype-default-rtdb.firebaseio.com",
+  projectId: "rakshyatra-prototype",
+  storageBucket: "rakshyatra-prototype.firebasestorage.app",
+  messagingSenderId: "857288226429",
+  appId: "1:857288226429:web:9dc466f15a410879d4a314"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const tripRef = db.ref('trips/demo-trip-today');
+const TS = firebase.database.ServerValue.TIMESTAMP;
+
+const studentNames = {1:'Ananya', 2:'Rohan', 3:'Meera', 4:'Kabir'};
+let heartbeatTimer = null;
+
+// mark this driver session online/offline for real — Firebase detects the
+// disconnect automatically even if the tab just closes or wifi drops
+tripRef.child('connectionStatus').set('online');
+tripRef.child('connectionStatus').onDisconnect().set('offline');
+
+function resetTodaysTrip(){
+  if(!confirm('Reset today\'s demo trip data? This clears pickup/drop status for both apps.')) return;
+  tripRef.set({
+    status: 'not_started',
+    dayPhotoTaken: false,
+    connectionStatus: 'online',
+    students: {
+      1:{name:'Ananya', school:'Greenwood School', pickupStatus:'pending', dropStatus:'pending'},
+      2:{name:'Rohan', school:'Greenwood School', pickupStatus:'pending', dropStatus:'pending'},
+      3:{name:'Meera', school:'Greenwood School', pickupStatus:'pending', dropStatus:'pending'},
+      4:{name:'Kabir', school:'Silver Oaks Academy', pickupStatus:'pending', dropStatus:'pending'}
+    }
+  });
+  location.reload();
+}
+
+// listen for parents resolving a "not at pickup" alert, and reflect it back here
+[1,2,3,4].forEach(id=>{
+  tripRef.child('students/'+id+'/pickupStatus').on('value', snap=>{
+    const val = snap.val();
+    const wrap = document.querySelector(`.student-row-wrap[data-s="${id}"]`);
+    if(!wrap) return;
+    const markBtn = wrap.querySelector('.mark-btn');
+    if(val === 'parent_resolved_wait'){
+      markBtn.classList.remove('waiting-parent'); markBtn.disabled = false;
+      markBtn.textContent = '⏳ Parent said: wait';
+      markBtn.classList.add('waiting-parent');
+    } else if(val === 'parent_resolved_go'){
+      markBtn.classList.remove('waiting-parent'); markBtn.disabled = true;
+      markBtn.textContent = '➡️ Parent said: go ahead';
+      markBtn.classList.add('skipped');
+    }
+  });
+});
+
+function nav(id, btn){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.navbtn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+let checkedCount = 0;
+const totalSteps = 6; // checklist steps toward progress bar phase 1 (of overall 3-phase trip, weighted below)
+
+function toggleCheck(box){
+  box.classList.toggle('checked');
+  checkedCount = document.querySelectorAll('.check-box.checked').length;
+  updateProgress();
+  document.getElementById('startBtn').disabled = checkedCount < 6;
+  document.getElementById('startHint').textContent = checkedCount < 6
+    ? `Complete all 6 checks to start (${checkedCount}/6 done)`
+    : 'All checks complete — ready to go';
+}
+
+function updateProgress(){
+  // weight: checklist 0-30%, pickups 30-70%, drops 70-100%
+  const pickedUp = document.querySelectorAll('#pickupList .mark-btn.done').length;
+  const dropped = document.querySelectorAll('#dropList .mark-btn.done').length;
+  let pct = 0;
+  pct += (checkedCount/6) * 30;
+  pct += (pickedUp/4) * 35;
+  pct += (dropped/4) * 35;
+  pct = Math.round(pct);
+  document.getElementById('progFill').style.width = pct + '%';
+  document.getElementById('progPct').textContent = pct + '%';
+
+  let label = `${checkedCount} of 6 checks done`;
+  if(checkedCount===6 && pickedUp<4) label = `${pickedUp} of 4 children picked up`;
+  if(pickedUp===4 && dropped<4) label = `${dropped} of 4 children dropped`;
+  if(dropped===4) label = 'Trip complete';
+  document.getElementById('progLabel').textContent = label;
+}
+
+function startTrip(){
+  document.getElementById('checklistCard').style.display='none';
+  document.getElementById('startBtn').style.display='none';
+  document.getElementById('startHint').style.display='none';
+  document.getElementById('startPhotoCard').style.display='block';
+  document.getElementById('beginRouteBtn').style.display='block';
+  document.getElementById('beginRouteHint').style.display='block';
+  const banner = document.getElementById('banner');
+  banner.className = 'status-banner';
+  document.getElementById('bannerText').textContent = 'Take your day-start photo to continue';
+}
+
+let photoTaken = false;
+function handlePhoto(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  const url = URL.createObjectURL(file);
+  const tile = document.getElementById('photoTile');
+  tile.classList.add('filled');
+  tile.innerHTML = `<img src="${url}"><span class="photo-badge">✓ TAKEN</span>` + tile.querySelector('input').outerHTML;
+  photoTaken = true;
+  document.getElementById('beginRouteBtn').disabled = false;
+  document.getElementById('beginRouteHint').textContent = 'Photo captured — ready to begin';
+  tripRef.update({ dayPhotoTaken: true, dayPhotoAt: TS });
+}
+
+function beginRoute(){
+  document.getElementById('startPhotoCard').style.display='none';
+  document.getElementById('beginRouteBtn').style.display='none';
+  document.getElementById('beginRouteHint').style.display='none';
+  document.getElementById('pickupCard').style.display='block';
+  document.getElementById('departBtn').style.display='block';
+  document.getElementById('departBtn').disabled = true;
+  document.getElementById('bannerText').textContent = 'Trip live — parents are now notified';
+  updateProgress();
+  tripRef.update({ status: 'live', startedAt: TS });
+  heartbeatTimer = setInterval(()=> tripRef.child('lastPing').set(TS), 4000);
+}
+
+function showOtp(btn, id){
+  const wrap = btn.closest('.student-row-wrap');
+  wrap.querySelector('.otp-panel').style.display = 'flex';
+  wrap.querySelector('.otp-panel input').focus();
+  btn.style.display = 'none';
+}
+
+function verifyOtp(verifyBtn, id){
+  const wrap = verifyBtn.closest('.student-row-wrap');
+  const input = wrap.querySelector('.otp-panel input');
+  if(input.value.trim().length !== 4){
+    input.style.borderColor = 'var(--alert)';
+    return;
+  }
+  wrap.querySelector('.otp-panel').style.display = 'none';
+  const markBtn = wrap.querySelector('.mark-btn');
+  markBtn.style.display = 'inline-block';
+  markBtn.classList.add('done');
+  markBtn.textContent = '✓ Verified';
+  updateProgress();
+  const pickedUp = document.querySelectorAll('#pickupList .mark-btn.done').length;
+  document.getElementById('pickupCount').textContent = pickedUp + '/4';
+  if(pickedUp===4){ document.getElementById('departBtn').disabled=false; document.getElementById('departBtn').style.opacity=1; }
+  tripRef.child('students/'+id).update({ pickupStatus: 'verified', pickupTime: TS });
+}
+
+function markStudent(btn, id){
+  btn.classList.add('done');
+  btn.textContent = '✓ Dropped';
+  updateProgress();
+  const dropped = document.querySelectorAll('#dropList .mark-btn.done').length;
+  if(dropped===4){ document.getElementById('endBtn').disabled=false; }
+  tripRef.child('students/'+id).update({ dropStatus: 'dropped', dropTime: TS });
+}
+
+function departSchool(){
+  document.getElementById('pickupCard').style.display='none';
+  document.getElementById('departBtn').style.display='none';
+  document.getElementById('dropCard').style.display='block';
+  document.getElementById('endBtn').style.display='block';
+  document.getElementById('bannerText').textContent = 'En route — Greenwood School, then Silver Oaks Academy';
+  tripRef.update({ status: 'en_route_school' });
+}
+
+function endTrip(){
+  document.getElementById('bannerText').textContent = 'Trip complete — great job!';
+  document.getElementById('banner').style.background = 'var(--safe-soft)';
+  document.getElementById('endBtn').textContent = '✓ Trip ended';
+  document.getElementById('endBtn').disabled = true;
+  document.getElementById('endBtn').style.opacity = 0.7;
+  tripRef.update({ status: 'trip_complete', endedAt: TS });
+  if(heartbeatTimer) clearInterval(heartbeatTimer);
+}
+
+/* ---------- SOS (with per-school contacts for today's route) ---------- */
+const schoolContacts = {
+  'Greenwood School': '080-4123-4567',
+  'Silver Oaks Academy': '080-4789-2211'
+};
+function openSos(){
+  // build the school list fresh each time from whichever schools today's children attend
+  const schools = [...new Set(
+    [...document.querySelectorAll('#pickupList .student-row-wrap')].map(el => el.dataset.school)
+  )];
+  const listEl = document.getElementById('schoolSosList');
+  listEl.innerHTML = schools.map(name => {
+    const count = document.querySelectorAll(`#pickupList .student-row-wrap[data-school="${name}"]`).length;
+    const num = schoolContacts[name] || '—';
+    return `<button class="sos-option school" onclick="callNumber('${num}')">
+      <span class="ic">🏫</span>
+      <span class="txt"><div class="t1">Call ${name}</div><div class="t2">${num} · ${count} of today's children attend here</div></span>
+    </button>`;
+  }).join('');
+  document.getElementById('sosModal').classList.add('open');
+}
+function closeSos(){ document.getElementById('sosModal').classList.remove('open'); }
+function callNumber(number){
+  closeSos();
+  window.location.href = 'tel:' + number.replace(/[^0-9+]/g,'');
+}
+
+/* ---------- CHILD NOT AT PICKUP POINT ---------- */
+function showNotPresent(link, id){
+  const wrap = link.closest('.student-row-wrap');
+  wrap.querySelector('.not-present-panel').style.display = 'block';
+  link.style.display = 'none';
+}
+function confirmNotPresent(btn, id){
+  const wrap = btn.closest('.student-row-wrap');
+  wrap.querySelector('.not-present-panel').style.display = 'none';
+  wrap.querySelector('.otp-panel').style.display = 'none';
+  const markBtn = wrap.querySelector('.mark-btn');
+  markBtn.classList.add('waiting-parent');
+  markBtn.textContent = '⏳ Awaiting parent';
+  markBtn.disabled = true;
+  wrap.querySelector('.not-present-link').style.display = 'none';
+  tripRef.child('students/'+id).update({ pickupStatus: 'not_present', notPresentAt: TS });
+}
+</script>
+</body>
+</html>

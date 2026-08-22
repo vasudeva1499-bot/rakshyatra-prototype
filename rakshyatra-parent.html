@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Rakshyatra — Parent</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<style>
+  :root{
+    --ink:#17233F;
+    --ink-soft:#5B6584;
+    --ink-faint:#94A0BD;
+    --paper:#F3F6F5;
+    --card:#FFFFFF;
+    --saffron:#E38B29;
+    --saffron-soft:#FBEBD8;
+    --safe:#2F9E6E;
+    --safe-soft:#E3F5EC;
+    --alert:#D14343;
+    --alert-soft:#FBE7E7;
+    --line:#E4E8E6;
+    --shadow: 0 10px 30px -12px rgba(23,35,63,0.18);
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    font-family:'Manrope', sans-serif;
+    background: #DCE3E8;
+    color: var(--ink);
+    min-height:100vh;
+    display:flex;
+    align-items:flex-start;
+    justify-content:center;
+    padding: 28px 12px;
+  }
+  .frame{
+    width:100%;
+    max-width:400px;
+    background:var(--paper);
+    border-radius:34px;
+    box-shadow: var(--shadow);
+    overflow:hidden;
+    min-height: 800px;
+    position:relative;
+    border: 1px solid rgba(23,35,63,0.06);
+  }
+  .status-bar{
+    height:24px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding: 6px 24px 0;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    color: var(--ink-soft);
+  }
+  .screen{ display:none; padding: 8px 20px 100px; }
+  .screen.active{ display:block; animation: fade .25s ease; }
+  @keyframes fade{ from{opacity:0; transform:translateY(4px)} to{opacity:1; transform:translateY(0)} }
+
+  .top-row{ display:flex; align-items:center; justify-content:space-between; margin: 6px 0 18px; }
+  .wordmark{ font-family:'Fraunces', serif; font-weight:600; font-size:21px; letter-spacing:-0.01em; }
+  .wordmark span{ color: var(--saffron); }
+  .bell{
+    width:36px; height:36px; border-radius:12px; background:var(--card);
+    display:flex; align-items:center; justify-content:center; border:1px solid var(--line);
+    position:relative;
+  }
+  .bell::after{
+    content:''; position:absolute; top:8px; right:8px; width:7px; height:7px;
+    background:var(--saffron); border-radius:50%; border:2px solid var(--paper);
+  }
+
+  .greet{ font-size:13px; color:var(--ink-soft); margin-bottom:2px; }
+  .child-name{ font-family:'Fraunces', serif; font-size:26px; font-weight:600; margin-bottom:18px; }
+
+  .status-pill{
+    display:inline-flex; align-items:center; gap:6px;
+    font-family:'IBM Plex Mono', monospace; font-size:11px; font-weight:600;
+    padding: 5px 10px 5px 8px; border-radius:20px; letter-spacing:0.02em;
+    background: var(--ink-faint); color:#fff;
+  }
+  .status-pill.waiting{ background:#B7BECF; color:var(--ink); }
+  .status-pill.live{ background:var(--safe); }
+  .status-pill.arrived{ background:var(--ink); }
+  .status-pill .dot{ width:6px; height:6px; border-radius:50%; background:#fff; }
+  .status-pill.live .dot{ animation: pulse 1.4s infinite; }
+  @keyframes pulse{ 0%,100%{opacity:1} 50%{opacity:.35} }
+
+  .hero-card{
+    background:var(--card); border-radius:22px; padding:20px 18px 18px;
+    box-shadow: 0 6px 20px -10px rgba(23,35,63,0.15);
+    margin-bottom:16px;
+  }
+  .hero-top{ display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+  .eta-block .num{ font-family:'IBM Plex Mono', monospace; font-size:28px; font-weight:600; line-height:1; }
+  .eta-block .lbl{ font-size:11px; color:var(--ink-soft); margin-top:4px; }
+
+  /* journey thread */
+  .thread{ display:flex; gap:16px; padding: 4px 0 4px 4px; }
+  .thread-rail{ position:relative; width:18px; flex-shrink:0; }
+  .thread-line{
+    position:absolute; left:8px; top:6px; bottom:6px; width:2px;
+    background-image: linear-gradient(var(--line) 60%, rgba(0,0,0,0) 0%);
+    background-size: 2px 8px; background-repeat: repeat-y;
+  }
+  .thread-line-fill{
+    position:absolute; left:8px; top:6px; width:2px; background: var(--safe);
+    transition: height 1.2s cubic-bezier(.65,0,.35,1);
+  }
+  .thread-node{
+    position:absolute; left:2px; width:14px; height:14px; border-radius:50%;
+    background:#fff; border:2px solid var(--ink-faint); transition: all .4s ease;
+  }
+  .thread-node.done{ border-color:var(--safe); background:var(--safe); }
+  .thread-node.current{
+    border-color:var(--saffron); background:var(--saffron);
+    box-shadow: 0 0 0 5px var(--saffron-soft);
+  }
+  .thread-stops{ flex:1; display:flex; flex-direction:column; justify-content:space-between; padding: 2px 0; }
+  .stop{ min-height:44px; display:flex; flex-direction:column; justify-content:center; }
+  .stop .name{ font-size:14px; font-weight:700; }
+  .stop .time{ font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--ink-soft); margin-top:2px; }
+  .stop.pending .name{ color:var(--ink-faint); }
+
+  .sim-btn{
+    width:100%; margin-top:14px; padding:11px; border-radius:12px; border:1px dashed var(--saffron);
+    background:var(--saffron-soft); color:#8A4E10; font-family:'Manrope'; font-weight:700; font-size:13px;
+    cursor:pointer;
+  }
+  .sim-btn:active{ transform: scale(0.98); }
+  .sim-btn:disabled{ opacity:0.45; cursor:default; }
+
+  .section-title{ font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; color:var(--ink-soft); margin: 22px 0 10px 2px; }
+
+  .driver-card{
+    background:var(--card); border-radius:20px; padding:16px; display:flex; gap:12px; align-items:center;
+    box-shadow: 0 6px 20px -10px rgba(23,35,63,0.12);
+  }
+  .avatar{
+    width:52px; height:52px; border-radius:16px; background: linear-gradient(135deg,#2C3B63,#17233F);
+    display:flex; align-items:center; justify-content:center; color:#fff; font-family:'Fraunces'; font-weight:600; font-size:19px;
+    flex-shrink:0;
+  }
+  .driver-info{ flex:1; }
+  .driver-name-row{ display:flex; align-items:center; gap:6px; }
+  .driver-name{ font-weight:800; font-size:15px; }
+  .verified{
+    font-size:9px; font-weight:700; background:var(--safe-soft); color:var(--safe);
+    padding:2px 6px; border-radius:6px; letter-spacing:0.03em;
+  }
+  .driver-meta{ font-size:12px; color:var(--ink-soft); margin-top:2px; }
+  .driver-meta b{ color:var(--ink); font-family:'IBM Plex Mono'; font-weight:600; }
+  .call-btn{
+    width:40px; height:40px; border-radius:12px; background:var(--ink); color:#fff;
+    display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0; border:none;
+  }
+
+  .alert-item{
+    display:flex; gap:10px; padding: 11px 0; border-bottom:1px solid var(--line);
+  }
+  .alert-item:last-child{ border-bottom:none; }
+  .alert-dot{ width:8px; height:8px; border-radius:50%; background:var(--saffron); margin-top:6px; flex-shrink:0; }
+  .alert-text{ font-size:13px; line-height:1.4; }
+  .alert-time{ font-family:'IBM Plex Mono', monospace; font-size:10.5px; color:var(--ink-faint); margin-top:2px; }
+
+  .history-item{
+    background:var(--card); border-radius:16px; padding:14px 16px; margin-bottom:10px;
+    display:flex; align-items:center; justify-content:space-between;
+    box-shadow: 0 4px 14px -8px rgba(23,35,63,0.12);
+  }
+  .history-date{ font-weight:700; font-size:13.5px; }
+  .history-sub{ font-size:11.5px; color:var(--ink-soft); margin-top:2px; }
+  .history-status{
+    font-family:'IBM Plex Mono'; font-size:10px; font-weight:700; padding:4px 8px; border-radius:8px;
+    background:var(--safe-soft); color:var(--safe);
+  }
+
+  .child-card{
+    background:var(--card); border-radius:20px; padding:18px; text-align:center; margin-bottom:14px;
+    box-shadow: 0 6px 20px -10px rgba(23,35,63,0.12);
+  }
+  .child-avatar{
+    width:64px; height:64px; border-radius:50%; margin:0 auto 10px; background: var(--saffron-soft);
+    display:flex; align-items:center; justify-content:center; font-family:'Fraunces'; font-size:24px; font-weight:600; color:var(--saffron);
+  }
+  .info-row{
+    display:flex; justify-content:space-between; padding:12px 0; border-bottom:1px solid var(--line); font-size:13.5px;
+  }
+  .info-row .k{ color:var(--ink-soft); }
+  .info-row .v{ font-weight:700; }
+  .info-row:last-child{ border-bottom:none; }
+
+  .sos-btn{
+    width:100%; margin-top:18px; padding:15px; border-radius:16px; border:none;
+    background: var(--alert); color:#fff; font-weight:800; font-size:14px; letter-spacing:0.02em;
+    box-shadow: 0 8px 20px -8px rgba(209,67,67,0.55);
+  }
+
+  /* SOS MODAL */
+  .sos-modal{
+    position:absolute; inset:0; background:rgba(23,35,63,0.6); display:none;
+    align-items:flex-end; justify-content:center; z-index:60; border-radius:34px;
+  }
+  .sos-modal.open{ display:flex; }
+  .sos-modal-inner{ width:100%; background:#fff; border-radius:24px 24px 0 0; padding:22px 20px 26px; }
+  .sos-modal-title{ font-family:'Fraunces'; font-weight:600; font-size:18px; margin-bottom:4px; }
+  .sos-modal-sub{ font-size:12.5px; color:var(--ink-soft); margin-bottom:18px; }
+  .sos-option{
+    display:flex; align-items:center; gap:12px; width:100%; padding:14px; border-radius:14px;
+    border:1.5px solid var(--line); background:#fff; margin-bottom:10px; cursor:pointer; text-align:left;
+  }
+  .sos-option .ic{ font-size:20px; width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .sos-option.police .ic{ background:var(--alert-soft); }
+  .sos-option.school .ic{ background:var(--saffron-soft); }
+  .sos-option .txt .t1{ font-weight:800; font-size:13.5px; }
+  .sos-option .txt .t2{ font-size:11px; color:var(--ink-soft); margin-top:1px; }
+  .sos-cancel{ width:100%; padding:13px; border-radius:14px; border:none; background:var(--paper); color:var(--ink-soft); font-weight:700; font-size:13px; margin-top:4px; }
+
+  /* SIGNAL LOST */
+  .status-pill.lost{ background:var(--alert); }
+  .status-pill.lost .dot{ animation: pulse 0.8s infinite; }
+  .signal-link{ background:none; border:none; font-size:10.5px; color:var(--ink-faint); text-decoration:underline; cursor:pointer; margin-top:8px; display:block; }
+
+  /* CONSENT ONBOARDING MODAL */
+  .consent-modal{
+    position:absolute; inset:0; background:rgba(23,35,63,0.72); display:none;
+    align-items:center; justify-content:center; z-index:80; border-radius:34px; padding:20px;
+  }
+  .consent-modal.open{ display:flex; }
+  .consent-card{ background:#fff; border-radius:22px; padding:24px 20px; max-height:92%; overflow-y:auto; }
+  .consent-title{ font-family:'Fraunces'; font-weight:600; font-size:19px; margin-bottom:6px; }
+  .consent-sub{ font-size:12px; color:var(--ink-soft); margin-bottom:16px; }
+  .consent-item{ display:flex; gap:10px; padding:10px 0; border-bottom:1px solid var(--line); font-size:12.5px; line-height:1.4; }
+  .consent-item:last-of-type{ border-bottom:none; }
+  .consent-item .ic{ flex-shrink:0; }
+  .consent-agree{ display:flex; align-items:flex-start; gap:10px; margin:16px 0; font-size:12px; color:var(--ink-soft); line-height:1.4; }
+  .consent-agree input{ margin-top:2px; }
+  .consent-btn{ width:100%; padding:13px; border-radius:14px; border:none; background:var(--ink); color:#fff; font-weight:800; font-size:13.5px; }
+  .consent-btn:disabled{ background:#C7CCDA; }
+
+  /* HOLIDAY / NO-TRIP STATE */
+  .holiday-card{ background:var(--card); border-radius:22px; padding:28px 20px; text-align:center; margin-bottom:16px; box-shadow: 0 6px 20px -10px rgba(23,35,63,0.15); }
+  .holiday-card .hic{ font-size:32px; margin-bottom:10px; }
+  .holiday-card .ht{ font-family:'Fraunces'; font-weight:600; font-size:17px; margin-bottom:4px; }
+  .holiday-card .hs{ font-size:12.5px; color:var(--ink-soft); }
+  .demo-toggle{ font-size:10px; color:var(--ink-faint); text-align:center; margin-top:10px; text-decoration:underline; cursor:pointer; }
+
+  .np-alert-card{
+    background:#fff; border-radius:18px; padding:16px; margin-bottom:16px; border:1.5px solid var(--alert);
+    box-shadow: 0 8px 22px -10px rgba(209,67,67,0.3);
+  }
+  .np-alert-card .npt{ font-weight:800; font-size:13.5px; color:var(--alert); display:flex; align-items:center; gap:6px; margin-bottom:6px; }
+  .np-alert-card .nps{ font-size:12.5px; color:var(--ink-soft); line-height:1.4; margin-bottom:12px; }
+  .np-btn-row{ display:flex; gap:8px; }
+  .np-btn{ flex:1; padding:10px; border-radius:11px; font-weight:800; font-size:11.5px; border:1.5px solid var(--line); background:#fff; cursor:pointer; }
+  .np-btn.primary{ background:var(--ink); color:#fff; border-color:var(--ink); }
+  .np-resolved{ display:none; text-align:center; padding:8px 0; font-size:12.5px; font-weight:700; color:var(--safe); }
+
+  .navbar{
+    position:absolute; bottom:0; left:0; right:0; background:var(--card);
+    border-top:1px solid var(--line); display:flex; padding: 10px 8px 14px;
+    border-radius: 0 0 34px 34px;
+  }
+  .navbtn{
+    flex:1; display:flex; flex-direction:column; align-items:center; gap:4px;
+    background:none; border:none; color:var(--ink-faint); font-family:'Manrope'; font-size:10.5px; font-weight:700;
+    cursor:pointer;
+  }
+  .navbtn .ic{ font-size:18px; }
+  .navbtn.active{ color:var(--saffron); }
+
+  .vanmate-row{ display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid var(--line); }
+  .vanmate-row:last-child{ border-bottom:none; }
+  .vanmate-avatar{
+    width:40px; height:40px; border-radius:50%; background:var(--saffron-soft); color:#8A4E10;
+    display:flex; align-items:center; justify-content:center; font-family:'Fraunces'; font-weight:600; font-size:15px; flex-shrink:0;
+  }
+  .vanmate-info{ flex:1; }
+  .vanmate-name{ font-weight:700; font-size:13.5px; }
+  .vanmate-meta{ font-size:11px; color:var(--ink-soft); }
+  .vanmate-status{ font-family:'IBM Plex Mono'; font-size:10px; font-weight:700; padding:4px 8px; border-radius:8px; }
+  .vanmate-status.done{ background:var(--safe-soft); color:var(--safe); }
+  .vanmate-status.pending{ background:var(--paper); color:var(--ink-faint); }
+
+  .invite-card{
+    background: linear-gradient(135deg,#1B2A4A,#17233F); border-radius:20px; padding:20px;
+    color:#fff; margin-top:16px;
+  }
+  .invite-card .it{ font-family:'Fraunces'; font-size:17px; font-weight:600; margin-bottom:6px; }
+  .invite-card .isub{ font-size:12.5px; color:#C6CCDE; line-height:1.5; margin-bottom:16px; }
+  .invite-btn{
+    width:100%; padding:12px; border-radius:12px; border:none; background:var(--saffron);
+    color:#1B2A4A; font-weight:800; font-size:13px; cursor:pointer;
+  }
+  .invite-btn:active{ transform: scale(0.98); }
+  .invite-note{ font-size:10.5px; color:#8D96B5; text-align:center; margin-top:10px; }
+
+  .map-preview-card{
+    background:var(--card); border-radius:20px; overflow:hidden; margin-bottom:16px; cursor:pointer;
+    box-shadow: 0 6px 20px -10px rgba(23,35,63,0.14); border:1px solid var(--line);
+  }
+  .map-preview-svg{ width:100%; height:140px; display:block; background: linear-gradient(180deg,#EEF2F0,#E7EDEA); }
+  .map-preview-foot{ display:flex; align-items:center; justify-content:space-between; padding:11px 15px; }
+  .map-preview-foot .mpt{ font-weight:800; font-size:12.5px; }
+  .map-preview-foot .mps{ font-size:10.5px; color:var(--ink-soft); font-family:'IBM Plex Mono'; }
+  .map-open-btn{ font-size:11px; font-weight:800; color:var(--saffron); }
+
+  .map-modal{
+    position:absolute; inset:0; background:rgba(23,35,63,0.55); display:none;
+    align-items:flex-end; justify-content:center; z-index:50; border-radius:34px;
+  }
+  .map-modal.open{ display:flex; }
+  .map-modal-inner{
+    width:100%; background:var(--paper); border-radius:26px 26px 0 0; padding:16px 16px 24px;
+    max-height:92%; display:flex; flex-direction:column;
+  }
+  .map-modal-header{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; padding: 0 4px; }
+  .map-modal-title{ font-family:'Fraunces'; font-weight:600; font-size:17px; }
+  .map-close{ width:30px; height:30px; border-radius:10px; border:none; background:var(--card); font-size:14px; cursor:pointer; }
+  .map-svg-wrap{ border-radius:18px; overflow:hidden; box-shadow: inset 0 0 0 1px var(--line); }
+  .map-svg{ width:100%; height:auto; display:block; background: linear-gradient(180deg,#EEF2F0,#E7EDEA); }
+  .map-footer-row{ display:flex; align-items:center; justify-content:space-between; padding:12px 4px 2px; }
+  .map-stat{ text-align:center; }
+  .map-stat .n{ font-family:'IBM Plex Mono'; font-weight:600; font-size:16px; }
+  .map-stat .l{ font-size:10px; color:var(--ink-soft); margin-top:2px; }
+  .ping-dot{ fill:#8A98BE; opacity:0.85; }
+  .ping-dot.recent{ fill:var(--saffron); }
+  .ping-dot.paused{ fill:var(--alert); opacity:0.9; }
+  .wait-ring{ fill:none; stroke:var(--alert); stroke-width:2; opacity:0.35; }
+  .wait-ring.pulse{ animation: waitpulse 1.6s infinite; }
+  @keyframes waitpulse{ 0%{ r:10; opacity:0.5; } 100%{ r:20; opacity:0; } }
+  .wait-label-bg{ fill:var(--alert); }
+  .wait-label{ fill:#fff; font-family:'IBM Plex Mono'; font-weight:600; font-size:9px; }
+
+  .tagline{ font-size:11px; color:var(--ink-faint); text-align:center; margin-top:10px; letter-spacing:0.02em; }
+</style>
+</head>
+<body>
+
+<div class="frame">
+  <div class="status-bar"><span>9:41</span><span>PARENT · PROTOTYPE</span></div>
+
+  <!-- HOME -->
+  <div class="screen active" id="home">
+    <div class="top-row">
+      <div class="wordmark">Raksh<span>y</span>atra</div>
+      <div class="bell">🔔</div>
+    </div>
+
+    <div class="greet">Good morning</div>
+    <div class="child-name">Ananya's ride</div>
+
+    <div id="tripContent">
+    <div class="hero-card">
+      <div class="hero-top">
+        <span class="status-pill waiting" id="statusPill"><span class="dot"></span>NOT STARTED</span>
+        <div class="eta-block" style="text-align:right">
+          <div class="num" id="etaNum">7:45</div>
+          <div class="lbl">expected pickup</div>
+        </div>
+      </div>
+
+      <div class="thread">
+        <div class="thread-rail">
+          <div class="thread-line"></div>
+          <div class="thread-line-fill" id="threadFill" style="height:0%"></div>
+          <div class="thread-node" id="node1" style="top:0%"></div>
+          <div class="thread-node" id="node2" style="top:47%"></div>
+          <div class="thread-node" id="node3" style="top:94%"></div>
+        </div>
+        <div class="thread-stops">
+          <div class="stop" id="stop1"><div class="name">Home pickup</div><div class="time">—</div></div>
+          <div class="stop pending" id="stop2"><div class="name">En route</div><div class="time">—</div></div>
+          <div class="stop pending" id="stop3"><div class="name">Greenwood School</div><div class="time">—</div></div>
+        </div>
+      </div>
+
+      <button class="sim-btn" id="simBtn" disabled style="cursor:default; opacity:0.6;">🔗 Live — connected to Ramesh's trip</button>
+    </div>
+
+    <div class="map-preview-card" onclick="openMap()">
+      <svg class="map-preview-svg" viewBox="0 0 360 140" preserveAspectRatio="none">
+        <path d="M 20 120 C 90 110, 110 40, 180 45 C 250 50, 260 20, 340 18" fill="none" stroke="#C7CFE0" stroke-width="3" stroke-dasharray="1 9" stroke-linecap="round"/>
+        <circle cx="20" cy="120" r="5" fill="#17233F"/>
+        <circle cx="340" cy="18" r="5" fill="#2F9E6E"/>
+        <circle id="previewMarker" cx="20" cy="120" r="7" fill="#E38B29" stroke="#fff" stroke-width="2"/>
+      </svg>
+      <div class="map-preview-foot">
+        <div><div class="mpt">Live route map</div><div class="mps" id="previewPingText">Not started yet</div></div>
+        <div class="map-open-btn">Open ↗</div>
+      </div>
+    </div>
+    </div><!-- /tripContent -->
+
+    <div class="holiday-card" id="holidayCard" style="display:none;">
+      <div class="hic">🎈</div>
+      <div class="ht">No trip today</div>
+      <div class="hs">Greenwood School is closed — enjoy the day off!</div>
+    </div>
+
+    <div class="np-alert-card" id="npAlertCard" style="display:none;">
+      <div class="npt">⚠️ Action needed</div>
+      <div class="nps">Ramesh (your Sarathi) says Ananya wasn't at the pickup point on 12th Cross. What should he do?</div>
+      <div class="np-btn-row" id="npButtons">
+        <button class="np-btn" onclick="resolveNotPresent('wait')">She's coming — wait 2 min</button>
+        <button class="np-btn primary" onclick="resolveNotPresent('go')">Go ahead without her</button>
+      </div>
+      <div class="np-resolved" id="npResolved"></div>
+    </div>
+
+    <div class="section-title">Your Sarathi</div>
+    <div class="driver-card">
+      <div class="avatar">RK</div>
+      <div class="driver-info">
+        <div class="driver-name-row"><span class="driver-name">Ramesh Kumar</span><span class="verified">✓ VERIFIED</span></div>
+        <div class="driver-meta">Van · <b>KA 05 AB 4321</b></div>
+        <div class="driver-meta">4 yrs on Rakshyatra</div>
+      </div>
+      <button class="call-btn">📞</button>
+    </div>
+
+    <div class="section-title">Recent activity</div>
+    <div class="hero-card" style="padding:14px 16px;">
+      <div class="alert-item">
+        <div class="alert-dot" style="background:var(--alert)"></div>
+        <div>
+          <div class="alert-text">Van paused 6 min near CMH Road — outside the usual route pattern</div>
+          <div class="alert-time">YESTERDAY · 8:02 AM</div>
+        </div>
+      </div>
+      <div class="alert-item">
+        <div class="alert-dot"></div>
+        <div>
+          <div class="alert-text">Trip scheduled for today, pickup window 7:40–7:50 AM</div>
+          <div class="alert-time">TODAY · 7:02 AM</div>
+        </div>
+      </div>
+      <div class="alert-item">
+        <div class="alert-dot" style="background:var(--ink-faint)"></div>
+        <div>
+          <div class="alert-text">Yesterday's trip completed — dropped 3:41 PM</div>
+          <div class="alert-time">YESTERDAY · 3:41 PM</div>
+        </div>
+      </div>
+    </div>
+
+    <button class="sos-btn" onclick="openSos()">🚨 Emergency — Alert School &amp; Contact</button>
+    <div class="tagline">Every journey, watched over.</div>
+  </div>
+
+  <!-- HISTORY -->
+  <div class="screen" id="history">
+    <div class="top-row">
+      <div class="wordmark" style="font-size:18px">Trip history</div>
+    </div>
+    <div class="history-item">
+      <div><div class="history-date">Fri, 15 Aug</div><div class="history-sub">Pickup 7:44 · Drop 3:39 PM</div></div>
+      <div class="history-status">ON TIME</div>
+    </div>
+    <div class="history-item">
+      <div><div class="history-date">Thu, 14 Aug</div><div class="history-sub">Pickup 7:51 · Drop 3:44 PM</div></div>
+      <div class="history-status" style="background:var(--saffron-soft); color:#8A4E10;">7 MIN LATE</div>
+    </div>
+    <div class="history-item">
+      <div><div class="history-date">Wed, 13 Aug</div><div class="history-sub">Pickup 7:42 · Drop 3:40 PM</div></div>
+      <div class="history-status">ON TIME</div>
+    </div>
+    <div class="history-item">
+      <div><div class="history-date">Tue, 12 Aug</div><div class="history-sub">Pickup 7:45 · Drop 3:38 PM</div></div>
+      <div class="history-status">ON TIME</div>
+    </div>
+    <div class="history-item">
+      <div><div class="history-date">Mon, 11 Aug</div><div class="history-sub">No school — holiday</div></div>
+      <div class="history-status" style="background:var(--paper); color:var(--ink-faint);">—</div>
+    </div>
+  </div>
+
+  <!-- PROFILE -->
+  <div class="screen" id="profile">
+    <div class="top-row">
+      <div class="wordmark" style="font-size:18px">Child &amp; plan</div>
+    </div>
+    <div class="child-card">
+      <div class="child-avatar">A</div>
+      <div style="font-family:'Fraunces'; font-weight:600; font-size:18px;">Ananya Sharma</div>
+      <div style="font-size:12px; color:var(--ink-soft); margin-top:2px;">Grade 4B · Greenwood School</div>
+    </div>
+    <div class="hero-card" style="padding:6px 16px;">
+      <div class="info-row"><span class="k">Pickup point</span><span class="v">12th Cross, Indiranagar</span></div>
+      <div class="info-row"><span class="k">Route</span><span class="v">Route 7 — Indiranagar</span></div>
+      <div class="info-row"><span class="k">Emergency contact</span><span class="v">+91 98xxx xxx12</span></div>
+      <div class="info-row"><span class="k">School front office</span><span class="v">080-4123-4567</span></div>
+      <div class="info-row"><span class="k">Plan</span><span class="v">Rakshyatra Basic</span></div>
+      <div class="info-row"><span class="k">Renews</span><span class="v">1 Sep 2026</span></div>
+    </div>
+    <div class="section-title">Support</div>
+    <div class="hero-card" style="padding:16px;">
+      <div style="font-size:13px; color:var(--ink-soft); line-height:1.5;">Something feel off with today's trip? Reach us directly — we respond within minutes during school hours.</div>
+    </div>
+  </div>
+
+  <!-- VAN GROUP -->
+  <div class="screen" id="van">
+    <div class="top-row">
+      <div class="wordmark" style="font-size:18px">Your van</div>
+    </div>
+    <div class="greet" style="margin-bottom:14px;">Route 7 · Indiranagar · 4 children today</div>
+
+    <div class="hero-card" style="padding:6px 16px;">
+      <div class="vanmate-row">
+        <div class="vanmate-avatar">A</div>
+        <div class="vanmate-info"><div class="vanmate-name">Ananya S. <span style="color:var(--ink-faint); font-weight:600;">(your child)</span></div><div class="vanmate-meta">Grade 4B · 12th Cross</div></div>
+        <div class="vanmate-status pending" id="vanStatus1">WAITING</div>
+      </div>
+      <div class="vanmate-row">
+        <div class="vanmate-avatar">R</div>
+        <div class="vanmate-info"><div class="vanmate-name">Rohan I.</div><div class="vanmate-meta">Grade 5A</div></div>
+        <div class="vanmate-status pending" id="vanStatus2">WAITING</div>
+      </div>
+      <div class="vanmate-row">
+        <div class="vanmate-avatar">M</div>
+        <div class="vanmate-info"><div class="vanmate-name">Meera D.</div><div class="vanmate-meta">Grade 4B</div></div>
+        <div class="vanmate-status pending" id="vanStatus3">WAITING</div>
+      </div>
+      <div class="vanmate-row">
+        <div class="vanmate-avatar">K</div>
+        <div class="vanmate-info"><div class="vanmate-name">Kabir S.</div><div class="vanmate-meta">Grade 3C</div></div>
+        <div class="vanmate-status pending" id="vanStatus4">WAITING</div>
+      </div>
+    </div>
+
+    <div class="invite-card">
+      <div class="it">Only 4 of ~8 families on this van are on Rakshyatra</div>
+      <div class="isub">The more parents on this van tracking together, the more accountable the ride gets for everyone — and it's free to join.</div>
+      <button class="invite-btn" onclick="this.textContent='✓ Link copied — share it on your building group'">📋 Copy invite link for this van</button>
+      <div class="invite-note">Only names, grade and pickup status are shared — never phone numbers or addresses.</div>
+    </div>
+  </div>
+
+  <div class="navbar">
+    <button class="navbtn active" onclick="nav('home',this)"><span class="ic">🏠</span>Home</button>
+    <button class="navbtn" onclick="nav('van',this)"><span class="ic">🚐</span>Van</button>
+    <button class="navbtn" onclick="nav('history',this)"><span class="ic">🕓</span>History</button>
+    <button class="navbtn" onclick="nav('profile',this)"><span class="ic">👤</span>Profile</button>
+  </div>
+
+  <!-- LIVE MAP MODAL -->
+  <div class="map-modal" id="mapModal">
+    <div class="map-modal-inner">
+      <div class="map-modal-header">
+        <div class="map-modal-title">Ananya's route today</div>
+        <button class="map-close" onclick="closeMap()">✕</button>
+      </div>
+      <div class="map-svg-wrap">
+        <svg class="map-svg" id="mapSvg" viewBox="0 0 360 460" preserveAspectRatio="xMidYMid meet">
+          <line x1="0" y1="90" x2="360" y2="80" stroke="#DDE3E0" stroke-width="2"/>
+          <line x1="0" y1="220" x2="360" y2="235" stroke="#DDE3E0" stroke-width="2"/>
+          <line x1="0" y1="350" x2="360" y2="330" stroke="#DDE3E0" stroke-width="2"/>
+          <line x1="110" y1="0" x2="90" y2="460" stroke="#DDE3E0" stroke-width="2"/>
+          <line x1="260" y1="0" x2="280" y2="460" stroke="#DDE3E0" stroke-width="2"/>
+
+          <path id="routePath" d="M 40 420 C 60 340, 40 260, 100 220 C 170 175, 150 120, 190 90 C 240 55, 260 70, 320 35"
+                fill="none" stroke="#17233F" stroke-width="3" stroke-dasharray="2 10" stroke-linecap="round" opacity="0.35"/>
+
+          <g id="pingLayer"></g>
+
+          <circle cx="40" cy="420" r="7" fill="#17233F"/>
+          <text x="52" y="424" font-family="Manrope" font-size="12" font-weight="700" fill="#17233F">Home</text>
+          <circle cx="320" cy="35" r="7" fill="#2F9E6E"/>
+          <text x="264" y="24" font-family="Manrope" font-size="12" font-weight="700" fill="#2F9E6E">School</text>
+
+          <circle id="liveMarkerRing" cx="40" cy="420" r="14" fill="#E38B29" opacity="0.25"/>
+          <circle id="liveMarker" cx="40" cy="420" r="8" fill="#E38B29" stroke="#fff" stroke-width="2.5"/>
+        </svg>
+      </div>
+      <div class="map-footer-row">
+        <div class="map-stat"><div class="n" id="pingCountStat">0</div><div class="l">PINGS RECEIVED</div></div>
+        <div class="map-stat"><div class="n" id="lastPingStat">—</div><div class="l">LAST PING</div></div>
+        <div class="map-stat"><div class="n" id="speedStat">—</div><div class="l">STATUS</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SOS MODAL -->
+  <div class="sos-modal" id="sosModal">
+    <div class="sos-modal-inner">
+      <div class="sos-modal-title">🚨 Emergency</div>
+      <div class="sos-modal-sub">Choose who to contact immediately</div>
+      <button class="sos-option police" onclick="callNumber('112', 'Police')">
+        <span class="ic">🚓</span>
+        <span class="txt"><div class="t1">Call Police</div><div class="t2">112 · National Emergency Number</div></span>
+      </button>
+      <button class="sos-option school" onclick="callNumber('080-4123-4567', 'Greenwood School Front Office')">
+        <span class="ic">🏫</span>
+        <span class="txt"><div class="t1">Call Greenwood School</div><div class="t2">080-4123-4567 · Front office · from your onboarding</div></span>
+      </button>
+      <button class="sos-cancel" onclick="closeSos()">Cancel</button>
+    </div>
+  </div>
+
+  <!-- CONSENT ONBOARDING MODAL -->
+  <div class="consent-modal" id="consentModal">
+    <div class="consent-card">
+      <div class="consent-title">Before you start</div>
+      <div class="consent-sub">A few things worth knowing about how Rakshyatra handles your child's information</div>
+      <div class="consent-item"><span class="ic">📍</span><span>Live location is shared only during trip hours, with you and other parents on the same van.</span></div>
+      <div class="consent-item"><span class="ic">👥</span><span>Other parents on this van can see your child's first name, grade, and pickup status — never your phone number or address.</span></div>
+      <div class="consent-item"><span class="ic">📷</span><span>Your Sarathi shares one identity photo at the start of each day, visible to all parents on the van.</span></div>
+      <div class="consent-item"><span class="ic">🔐</span><span>Pickup is confirmed with a private code shown only to you — share it with your child's Sarathi directly, not through your child.</span></div>
+      <label class="consent-agree">
+        <input type="checkbox" id="consentCheck" onchange="document.getElementById('consentBtn').disabled = !this.checked">
+        <span>I understand and agree to how my child's information is shared, as described above.</span>
+      </label>
+      <button class="consent-btn" id="consentBtn" disabled onclick="closeConsent()">Continue to Rakshyatra</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ---------- FIREBASE: shared trip data with the Sarathi (driver) app ----------
+const firebaseConfig = {
+  apiKey: "AIzaSyCbInpRPLdsP2TwnjlBeRwEr2s_tgKaqXA",
+  authDomain: "rakshyatra-prototype.firebaseapp.com",
+  databaseURL: "https://rakshyatra-prototype-default-rtdb.firebaseio.com",
+  projectId: "rakshyatra-prototype",
+  storageBucket: "rakshyatra-prototype.firebasestorage.app",
+  messagingSenderId: "857288226429",
+  appId: "1:857288226429:web:9dc466f15a410879d4a314"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const tripRef = db.ref('trips/demo-trip-today');
+const TS = firebase.database.ServerValue.TIMESTAMP;
+
+const MY_CHILD_ID = 1; // Ananya — the thread on Home represents her personal journey
+let currentAlertId = null;
+
+function nav(id, btn){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.navbtn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+const timeStr = (ms)=> ms ? new Date(ms).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}) : '—';
+
+function renderFromTrip(data){
+  if(!data) return; // no trip yet today — leave the default "not started" markup as-is
+
+  const pill = document.getElementById('statusPill');
+  const fill = document.getElementById('threadFill');
+  const eta = document.getElementById('etaNum');
+  const status = data.status || 'not_started';
+  const offline = data.connectionStatus === 'offline' && status !== 'trip_complete' && status !== 'not_started';
+  lastTripData = data;
+
+  // ---- status pill ----
+  if(offline){
+    pill.className = 'status-pill lost';
+    pill.innerHTML = '<span class="dot"></span>SIGNAL LOST — Sarathi app disconnected';
+  } else if(status === 'not_started'){
+    pill.className = 'status-pill waiting'; pill.innerHTML = '<span class="dot"></span>NOT STARTED';
+  } else if(status === 'trip_complete'){
+    pill.className = 'status-pill arrived'; pill.innerHTML = '<span class="dot"></span>ARRIVED';
+  } else {
+    pill.className = 'status-pill live'; pill.innerHTML = '<span class="dot"></span>LIVE';
+  }
+
+  // ---- journey thread (tracks MY_CHILD_ID's own pickup/drop) ----
+  const myStudent = (data.students && data.students[MY_CHILD_ID]) || {};
+  const node1 = document.getElementById('node1'), stop1 = document.getElementById('stop1');
+  const node2 = document.getElementById('node2'), stop2 = document.getElementById('stop2');
+  const node3 = document.getElementById('node3'), stop3 = document.getElementById('stop3');
+
+  if(myStudent.pickupStatus === 'verified'){
+    node1.classList.add('done'); stop1.classList.remove('pending');
+    stop1.querySelector('.time').textContent = timeStr(myStudent.pickupTime);
+    fill.style.height = '6%';
+    node2.classList.add('current'); stop2.classList.remove('pending');
+    stop2.querySelector('.name').textContent = 'En route';
+    stop2.querySelector('.time').textContent = 'in transit';
+    eta.textContent = 'On the way';
+  }
+  if(status === 'en_route_school'){
+    node2.classList.remove('current'); node2.classList.add('done');
+    node3.classList.add('current'); fill.style.height = '94%';
+    eta.textContent = 'Arriving soon';
+  }
+  if(myStudent.dropStatus === 'dropped'){
+    node3.classList.remove('current'); node3.classList.add('done');
+    stop3.classList.remove('pending');
+    stop3.querySelector('.time').textContent = timeStr(myStudent.dropTime);
+    fill.style.height = '100%';
+    eta.textContent = 'Done';
+  }
+
+  // ---- plot the van's position the moment the trip goes live, and on every real milestone change ----
+  if(status !== 'not_started'){
+    registerPing(data);
+  }
+
+  // ---- Van tab: everyone's pickup status ----
+  if(data.students){
+    Object.keys(data.students).forEach(id=>{
+      const el = document.getElementById('vanStatus'+id);
+      if(!el) return;
+      const s = data.students[id].pickupStatus;
+      if(s === 'verified'){ el.className='vanmate-status done'; el.textContent='PICKED UP'; }
+      else if(s === 'not_present'){ el.className='vanmate-status pending'; el.textContent='NOT AT STOP'; }
+      else if(s === 'parent_resolved_go'){ el.className='vanmate-status done'; el.textContent='SKIPPED'; }
+      else { el.className='vanmate-status pending'; el.textContent='WAITING'; }
+    });
+  }
+
+  // ---- real "child not at pickup" alert from the Sarathi ----
+  if(data.students){
+    const flagged = Object.keys(data.students).find(id=>
+      data.students[id].pickupStatus === 'not_present'
+    );
+    if(flagged && currentAlertId !== flagged){
+      currentAlertId = flagged;
+      showNotPresentAlert(studentFirstName(flagged));
+    }
+  }
+}
+
+function studentFirstName(id){
+  const names = {1:'Ananya', 2:'Rohan', 3:'Meera', 4:'Kabir'};
+  return names[id] || 'Your child';
+}
+
+tripRef.on('value', snap => renderFromTrip(snap.val()));
+
+/* ---------- LIVE MAP ---------- */
+function openMap(){ document.getElementById('mapModal').classList.add('open'); }
+function closeMap(){ document.getElementById('mapModal').classList.remove('open'); }
+
+/* ---------- SOS ---------- */
+function openSos(){ document.getElementById('sosModal').classList.add('open'); }
+function closeSos(){ document.getElementById('sosModal').classList.remove('open'); }
+function callNumber(number, label){
+  closeSos();
+  window.location.href = 'tel:' + number.replace(/[^0-9+]/g,'');
+}
+
+/* ---------- CONSENT ONBOARDING (shown once per session) ---------- */
+function closeConsent(){ document.getElementById('consentModal').classList.remove('open'); }
+
+/* ---------- CHILD NOT AT PICKUP (triggered for real by the Sarathi app) ---------- */
+function showNotPresentAlert(name){
+  document.getElementById('npAlertCard').style.display = 'block';
+  document.getElementById('npButtons').style.display = 'flex';
+  document.getElementById('npResolved').style.display = 'none';
+  document.querySelector('#npAlertCard .nps').textContent =
+    `Ramesh (your Sarathi) says ${name} wasn't at the pickup point. What should he do?`;
+}
+function resolveNotPresent(choice){
+  document.getElementById('npButtons').style.display = 'none';
+  const resolved = document.getElementById('npResolved');
+  resolved.style.display = 'block';
+  resolved.textContent = choice === 'wait'
+    ? '✓ Ramesh notified — he\'ll wait 2 more minutes'
+    : '✓ Ramesh notified — proceeding without your child today';
+  if(currentAlertId){
+    tripRef.child('students/'+currentAlertId).update({
+      pickupStatus: choice === 'wait' ? 'parent_resolved_wait' : 'parent_resolved_go',
+      resolvedAt: TS
+    });
+  }
+  currentAlertId = null;
+}
+
+window.addEventListener('DOMContentLoaded', ()=>{
+  document.getElementById('consentModal').classList.add('open');
+});
+
+
+let pingCount = 0;
+let lastPingTime = null;
+let lastTripData = null;
+
+// Where the van "is" on the illustrated route — based on real milestones we
+// actually know (pickup verified, departed, dropped), not continuous GPS.
+// Real GPS-to-map plotting is the natural next real feature once the Sarathi
+// app streams live coordinates — this is an honest approximation until then.
+function milestoneFrac(data){
+  if(!data) return 0;
+  const status = data.status || 'not_started';
+  const my = (data.students && data.students[MY_CHILD_ID]) || {};
+  if(status === 'not_started') return 0;
+  if(my.dropStatus === 'dropped' || status === 'trip_complete') return 1;
+  if(status === 'en_route_school') return 0.7;
+  if(my.pickupStatus === 'verified') return 0.35;
+  return 0.12;
+}
+
+function moveMapMarker(frac, isOffline){
+  const path = document.getElementById('routePath');
+  const previewPath = document.querySelector('.map-preview-svg path');
+  const totalLen = path.getTotalLength();
+  const pt = path.getPointAtLength(frac * totalLen);
+
+  document.getElementById('liveMarker').setAttribute('cx', pt.x);
+  document.getElementById('liveMarker').setAttribute('cy', pt.y);
+  document.getElementById('liveMarkerRing').setAttribute('cx', pt.x);
+  document.getElementById('liveMarkerRing').setAttribute('cy', pt.y);
+  document.getElementById('liveMarker').setAttribute('fill', isOffline ? 'var(--alert)' : 'var(--saffron)');
+
+  if(previewPath){
+    const pLen = previewPath.getTotalLength();
+    const ppt = previewPath.getPointAtLength(frac * pLen);
+    document.getElementById('previewMarker').setAttribute('cx', ppt.x);
+    document.getElementById('previewMarker').setAttribute('cy', ppt.y);
+  }
+  return pt;
+}
+
+function dropPing(pt, isOffline){
+  const svgns = 'http://www.w3.org/2000/svg';
+  const dot = document.createElementNS(svgns, 'circle');
+  dot.setAttribute('cx', pt.x); dot.setAttribute('cy', pt.y);
+  dot.setAttribute('r', 3.2);
+  dot.setAttribute('class', isOffline ? 'ping-dot paused' : 'ping-dot recent');
+  document.getElementById('pingLayer').appendChild(dot);
+  if(!isOffline){
+    document.querySelectorAll('.ping-dot.recent').forEach((d,i,arr)=>{ if(d!==arr[arr.length-1]) d.classList.remove('recent'); });
+  }
+}
+
+// called on the FIRST update after the trip goes live, and again every time
+// the Sarathi app's real heartbeat (written every 4s while a trip is live) arrives
+function registerPing(data){
+  if(!data || (data.status||'not_started') === 'not_started') return;
+  pingCount++;
+  lastPingTime = Date.now();
+  const offline = data.connectionStatus === 'offline' && data.status !== 'trip_complete';
+  const frac = milestoneFrac(data);
+  const pt = moveMapMarker(frac, offline);
+  dropPing(pt, offline);
+
+  document.getElementById('pingCountStat').textContent = pingCount;
+  document.getElementById('lastPingStat').textContent = 'just now';
+  document.getElementById('speedStat').textContent = offline ? 'Offline' : 'Connected';
+  document.getElementById('previewPingText').textContent = offline
+    ? 'Signal lost — last known position'
+    : pingCount + ' updates · just now';
+}
+
+// keeps "last ping Xs ago" honest between heartbeats, rather than only updating on new data
+setInterval(()=>{
+  if(!lastPingTime) return;
+  const secs = Math.floor((Date.now() - lastPingTime) / 1000);
+  const el = document.getElementById('lastPingStat');
+  if(el) el.textContent = secs < 3 ? 'just now' : secs + 's ago';
+}, 1000);
+
+// the Sarathi app writes this every 4s while a trip is live — each write is a real signal
+tripRef.child('lastPing').on('value', snap => {
+  if(snap.val()) registerPing(lastTripData);
+});
+</script>
+
+</body>
+</html>
