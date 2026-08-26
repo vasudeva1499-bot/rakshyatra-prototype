@@ -397,6 +397,11 @@ let heartbeatTimer = null;
 
 // mark this driver session online/offline for real — Firebase detects the
 // disconnect automatically even if the tab just closes or wifi drops
+// real connection check — if this logs "false", the browser isn't reaching Firebase at all
+db.ref('.info/connected').on('value', snap => {
+  console.log('[Rakshyatra sync] Sarathi app connected to Firebase:', snap.val());
+});
+
 tripRef.child('connectionStatus').set('online');
 tripRef.child('connectionStatus').onDisconnect().set('offline');
 
@@ -432,6 +437,11 @@ function resetTodaysTrip(){
       markBtn.textContent = '➡️ Parent said: go ahead';
       markBtn.classList.add('skipped');
     }
+    // this is the actual fix for bug #2 — re-check whether the trip can now proceed,
+    // since a not-present child no longer has to permanently block departure
+    if(document.getElementById('pickupCard').style.display !== 'none'){
+      updateProgress();
+    }
   });
 });
 
@@ -457,7 +467,9 @@ function toggleCheck(box){
 
 function updateProgress(){
   // weight: checklist 0-30%, pickups 30-70%, drops 70-100%
-  const pickedUp = document.querySelectorAll('#pickupList .mark-btn.done').length;
+  // "resolved" = actually verified OR the parent explicitly said go-ahead-without-them —
+  // a not-present child shouldn't block the whole trip forever once the parent's decided.
+  const pickedUp = document.querySelectorAll('#pickupList .mark-btn.done, #pickupList .mark-btn.skipped').length;
   const dropped = document.querySelectorAll('#dropList .mark-btn.done').length;
   let pct = 0;
   pct += (checkedCount/6) * 30;
@@ -468,10 +480,19 @@ function updateProgress(){
   document.getElementById('progPct').textContent = pct + '%';
 
   let label = `${checkedCount} of 6 checks done`;
-  if(checkedCount===6 && pickedUp<4) label = `${pickedUp} of 4 children picked up`;
+  if(checkedCount===6 && pickedUp<4) label = `${pickedUp} of 4 children resolved`;
   if(pickedUp===4 && dropped<4) label = `${dropped} of 4 children dropped`;
   if(dropped===4) label = 'Trip complete';
   document.getElementById('progLabel').textContent = label;
+
+  // re-check departure unlock every time progress is recalculated — this is what
+  // actually fixes the "stuck forever" bug, since resolution can arrive asynchronously
+  // via the parent's response, not just via a direct driver tap
+  const departBtn = document.getElementById('departBtn');
+  if(departBtn && departBtn.style.display !== 'none'){
+    departBtn.disabled = pickedUp < 4;
+    departBtn.style.opacity = pickedUp < 4 ? 0.5 : 1;
+  }
 }
 
 function startTrip(){
@@ -533,7 +554,7 @@ function verifyOtp(verifyBtn, id){
   markBtn.classList.add('done');
   markBtn.textContent = '✓ Verified';
   updateProgress();
-  const pickedUp = document.querySelectorAll('#pickupList .mark-btn.done').length;
+  const pickedUp = document.querySelectorAll('#pickupList .mark-btn.done, #pickupList .mark-btn.skipped').length;
   document.getElementById('pickupCount').textContent = pickedUp + '/4';
   if(pickedUp===4){ document.getElementById('departBtn').disabled=false; document.getElementById('departBtn').style.opacity=1; }
   tripRef.child('students/'+id).update({ pickupStatus: 'verified', pickupTime: TS });
@@ -609,7 +630,9 @@ function confirmNotPresent(btn, id){
   markBtn.textContent = '⏳ Awaiting parent';
   markBtn.disabled = true;
   wrap.querySelector('.not-present-link').style.display = 'none';
-  tripRef.child('students/'+id).update({ pickupStatus: 'not_present', notPresentAt: TS });
+  tripRef.child('students/'+id).update({ pickupStatus: 'not_present', notPresentAt: TS })
+    .then(()=> console.log('[Rakshyatra sync] Wrote "not_present" for student', id, '— check Firebase console to confirm'))
+    .catch(err => console.error('[Rakshyatra sync] FAILED to write "not_present":', err));
 }
 </script>
 </body>
