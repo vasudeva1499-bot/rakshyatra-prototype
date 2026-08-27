@@ -116,6 +116,16 @@
   .status-banner .pulse{ width:8px; height:8px; border-radius:50%; background:var(--safe); animation:pulse 1.4s infinite; }
   @keyframes pulse{ 0%,100%{opacity:1} 50%{opacity:.3} }
   .status-banner.idle{ background:var(--paper); color:var(--ink-soft); }
+  .stale-warning{
+    display:none; align-items:center; gap:10px; padding:12px 14px; border-radius:14px;
+    background:var(--alert-soft); color:var(--alert); font-size:12.5px; font-weight:600; line-height:1.4;
+    margin-bottom:14px; border:1px solid var(--alert);
+  }
+  .stale-warning.show{ display:flex; }
+  .stale-warning .swbtn{
+    flex-shrink:0; background:var(--alert); color:#fff; border:none; padding:8px 12px; border-radius:9px;
+    font-weight:800; font-size:11.5px; cursor:pointer; white-space:nowrap;
+  }
   .status-banner.idle .pulse{ background:var(--ink-faint); animation:none; }
 
   .navbar{
@@ -230,6 +240,10 @@
       </div>
     </div>
     <div class="greet">Good morning, Ramesh</div>
+    <div id="staleWarning" class="stale-warning">
+      <span>⚠️ <span id="staleWarningText">Leftover trip data from before is still showing.</span></span>
+      <button class="swbtn" onclick="resetTodaysTrip()">Reset now</button>
+    </div>
     <div class="route-name">Indiranagar Morning Run</div>
     <div class="demo-toggle" onclick="resetTodaysTrip()" style="text-align:left; margin:-8px 0 14px 2px;">↺ Start a fresh trip today</div>
 
@@ -403,6 +417,18 @@ db.ref('.info/connected').on('value', snap => {
 });
 
 tripRef.child('connectionStatus').set('online');
+
+// warn the driver if there's leftover data from a previous trip, so a fresh session
+// doesn't silently sit on top of yesterday's finished (or someone else's test) trip
+tripRef.once('value', snap => {
+  const d = snap.val();
+  if(d && d.status && d.status !== 'not_started'){
+    const label = { live: 'a trip in progress', en_route_school: 'a trip en route to school', trip_complete: 'a completed trip' }[d.status] || d.status;
+    document.getElementById('staleWarningText').textContent =
+      `Firebase still shows ${label} from before — parents will see this old data until you reset.`;
+    document.getElementById('staleWarning').classList.add('show');
+  }
+});
 tripRef.child('connectionStatus').onDisconnect().set('offline');
 
 function resetTodaysTrip(){
